@@ -13,6 +13,7 @@ interface WeightEntry {
 export default function App() {
   const [weight, setWeight] = useState('');
   const [data, setData] = useState<WeightEntry[]>([]);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchWeights();
@@ -42,6 +43,40 @@ export default function App() {
     } catch (error) {
       Alert.alert('Error', 'Failed to submit weight');
     }
+  };
+
+  const deleteWeight = async (id: number) => {
+    Alert.alert(
+      'Delete Entry',
+      'Are you sure you want to delete this entry?',
+      [
+        {
+          text: 'Cancel',
+          onPress: () => {},
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          onPress: async () => {
+            setDeletingId(id);
+            try {
+              const response = await fetch(`http://localhost:8000/weight/${id}`, {
+                method: 'DELETE',
+              });
+              if (!response.ok) {
+                throw new Error('Failed to delete');
+              }
+              fetchWeights();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete weight entry');
+            } finally {
+              setDeletingId(null);
+            }
+          },
+          style: 'destructive',
+        },
+      ]
+    );
   };
 
   const pickImage = async () => {
@@ -101,6 +136,19 @@ export default function App() {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayOfWeek = days[date.getDay()];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${dayOfWeek}, ${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Weight Tracker</Text>
@@ -113,15 +161,29 @@ export default function App() {
       />
       <Button title="Submit" onPress={submitWeight} />
       <View style={styles.buttonRow}>
-        <Button title="Take Photo" onPress={takePhoto} />
-        <Button title="Select Photo" onPress={pickImage} />
+        <View style={styles.buttonContainer}>
+          <Button title="Take Photo" onPress={takePhoto} />
+        </View>
+        <View style={styles.buttonContainer}>
+          <Button title="Select Photo" onPress={pickImage} />
+        </View>
       </View>
       <FlatList
         data={data}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <Text>{item.weight} kg - {new Date(item.timestamp).toLocaleDateString()}</Text>
+            <View style={styles.itemContent}>
+              <Text style={styles.itemWeight}>{item.weight} kg</Text>
+              <Text style={styles.itemMethod}>({item.method === 'ocr' ? 'Photo' : 'Manual'})</Text>
+              <Text style={styles.itemDate}>{formatDate(item.timestamp)}</Text>
+            </View>
+            <Button 
+              title="Delete" 
+              onPress={() => deleteWeight(item.id)}
+              disabled={deletingId === item.id}
+              color="#ff4444"
+            />
           </View>
         )}
       />
@@ -151,10 +213,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
+    gap: 10,
+  },
+  buttonContainer: {
+    flex: 1,
   },
   item: {
     padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemWeight: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  itemMethod: {
+    fontSize: 12,
+    color: '#666',
+  },
+  itemDate: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
   },
 });
+

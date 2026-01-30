@@ -15,7 +15,7 @@ app = FastAPI()
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5174"],  # Vite dev server
+    allow_origins=["http://localhost:5173"],  # Vite dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -74,6 +74,18 @@ def get_weights(start: Optional[str] = None, end: Optional[str] = None) -> List[
     entries = query.all()
     db.close()
     return [{"id": e.id, "weight": e.weight, "timestamp": e.timestamp.isoformat(), "method": e.method} for e in entries]
+
+@app.delete("/weight/{entry_id}")
+def delete_weight(entry_id: int):
+    db = SessionLocal()
+    entry = db.query(WeightEntry).filter(WeightEntry.id == entry_id).first()
+    if not entry:
+        db.close()
+        raise HTTPException(status_code=404, detail="Weight entry not found")
+    db.delete(entry)
+    db.commit()
+    db.close()
+    return {"id": entry_id, "message": "Weight entry deleted successfully"}
 
 if __name__ == "__main__":
     import uvicorn
