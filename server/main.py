@@ -41,8 +41,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = "sqlite:///./weight.db"
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./weight.db")
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -84,8 +84,7 @@ class WeightEntry(Base):
     user = relationship("User", back_populates="weights")
 
 
-# Create all tables (this will recreate the database)
-Base.metadata.drop_all(bind=engine)
+# Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
 
 

@@ -1,0 +1,112 @@
+name: Deploy to Netcup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-server.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add SSH known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p 2222 ${{ secrets.NETCUP_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Netcup
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          NETCUP_HOST: ${{ secrets.NETCUP_HOST }}
+          APP_DIR: ${{ secrets.WEIGHT_TRACKER_APP_DIR }}
+          SECRET_KEY: ${{ secrets.WEIGHT_TRACKER_SECRET_KEY }}
+          RESEND_API_KEY: ${{ secrets.WEIGHT_TRACKER_RESEND_API_KEY }}
+          FRONTEND_URL: ${{ secrets.WEIGHT_TRACKER_FRONTEND_URL }}
+          FROM_EMAIL: ${{ secrets.WEIGHT_TRACKER_FROM_EMAIL }}
+        run: |
+          # Create deployment directory
+          mkdir -p deploy
+
+          # Copy server files
+          cp server/Dockerfile deploy/
+          cp server/docker-compose.yml deploy/
+          cp server/main.py deploy/
+          cp server/requirements.txt deploy/
+
+          # Create deploy script
+          cat > deploy.sh << 'DEPLOY_SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+
+          APP_DIR="${APP_DIR}"
+          SECRET_KEY="${SECRET_KEY}"
+          RESEND_API_KEY="${RESEND_API_KEY}"
+          FRONTEND_URL="${FRONTEND_URL}"
+          FROM_EMAIL="${FROM_EMAIL}"
+
+          echo "Deploying Weight Tracker backend..."
+          cd ${APP_DIR}
+
+          # Create .env file
+          cat > .env << EOF
+          SECRET_KEY=${SECRET_KEY}
+          RESEND_API_KEY=${RESEND_API_KEY}
+          FRONTEND_URL=${FRONTEND_URL}
+          FROM_EMAIL=${FROM_EMAIL}
+          EOF
+          echo "Environment variables set."
+
+          # Stop existing containers
+          docker compose down || true
+
+          # Backup previous deployment
+          if [ -f main.py ]; then
+            mkdir -p backup
+            cp main.py backup/main-$(date +%Y%m%d%H%M%S).py
+            # Keep only the last 3 backups
+            ls -t backup/main-*.py | tail -n +4 | xargs --no-run-if-empty rm -f
+          fi
+
+          # Move new files
+          mv deploy/Dockerfile .
+          mv deploy/docker-compose.yml .
+          mv deploy/main.py .
+          mv deploy/requirements.txt .
+
+          # Ensure data directory exists
+          mkdir -p data
+
+          # Build and start containers
+          echo "Starting containers..."
+          timeout 300 docker compose up --build -d
+
+          # Clean up
+          rm -rf deploy
+
+          echo "✅ Weight Tracker deployment complete!"
+          DEPLOY_SCRIPT
+
+          # Replace environment variables in the script
+          envsubst '${APP_DIR} ${SECRET_KEY} ${RESEND_API_KEY} ${FRONTEND_URL} ${FROM_EMAIL}' < deploy.sh > deploy_final.sh
+          chmod +x deploy_final.sh
+
+          # Debug output
+          echo "Files ready for deployment:"
+          ls -la deploy/
+
+          # Deploy to remote server
+          scp -P 2222 -r deploy deploy_final.sh ${SSH_USER}@${NETCUP_HOST}:${APP_DIR}/
+          ssh -p 2222 ${SSH_USER}@${NETCUP_HOST} "cd ${APP_DIR} && bash deploy_final.sh && rm deploy_final.sh"
+
+          # Clean up local files
+          rm -rf deploy deploy.sh deploy_final.sh
