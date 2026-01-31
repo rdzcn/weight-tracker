@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Weight Tracker",
+    "slug": "weight-tracker",
+    "scheme": "weighttracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,6 +16,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.weighttracker.app",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs camera access to take photos of your scale for weight tracking.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select images for weight tracking."

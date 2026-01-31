@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
-import { Trash2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/card'
+import { Trash2, LogOut } from 'lucide-react'
+
+const API_URL = 'http://localhost:8000'
 
 interface WeightEntry {
   id: number;
@@ -12,7 +14,188 @@ interface WeightEntry {
   method: string;
 }
 
-function App() {
+interface User {
+  id: number;
+  email: string;
+  created_at: string;
+}
+
+// Auth helper functions
+const getToken = () => localStorage.getItem('token')
+const setToken = (token: string) => localStorage.setItem('token', token)
+const removeToken = () => localStorage.removeItem('token')
+const getUser = (): User | null => {
+  const user = localStorage.getItem('user')
+  return user ? JSON.parse(user) : null
+}
+const setUser = (user: User) => localStorage.setItem('user', JSON.stringify(user))
+const removeUser = () => localStorage.removeItem('user')
+
+const authFetch = async (url: string, options: RequestInit = {}) => {
+  const token = getToken()
+  const headers: HeadersInit = {
+    ...options.headers,
+  }
+  if (token) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+  }
+  const response = await fetch(url, { ...options, headers })
+  if (response.status === 401) {
+    removeToken()
+    removeUser()
+    window.location.reload()
+  }
+  return response
+}
+
+// Landing Page Component
+function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void }) {
+  const [email, setEmail] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [verifyingToken, setVerifyingToken] = useState(false)
+
+  useEffect(() => {
+    // Check for magic link token in URL
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    const path = window.location.pathname
+    
+    if (path === '/auth/verify' && token) {
+      verifyMagicLink(token)
+    }
+  }, [])
+
+  const verifyMagicLink = async (token: string) => {
+    setVerifyingToken(true)
+    try {
+      const response = await fetch(`${API_URL}/auth/verify?token=${token}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Verification failed')
+      }
+      const data = await response.json()
+      onLogin(data.user, data.access_token)
+      // Clear URL params
+      window.history.replaceState({}, '', '/')
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to verify magic link')
+      window.history.replaceState({}, '', '/')
+    } finally {
+      setVerifyingToken(false)
+    }
+  }
+
+  const requestMagicLink = async () => {
+    if (!email) return
+    
+    setIsLoading(true)
+    try {
+      const response = await fetch(`${API_URL}/auth/request-magic-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Failed to send magic link')
+      }
+      
+      setEmailSent(true)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to send magic link')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      requestMagicLink()
+    }
+  }
+
+  if (verifyingToken) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Verifying your magic link...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Check your email! 📧</CardTitle>
+            <CardDescription>
+              We sent a magic link to <strong>{email}</strong>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-gray-600 text-center">
+              Click the link in the email to sign in. The link expires in 15 minutes.
+            </p>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => setEmailSent(false)}
+            >
+              Use a different email
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl">Weight Tracker</CardTitle>
+          <CardDescription>
+            Track your weight with manual entries or photos
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={isLoading}
+            />
+          </div>
+          <Button 
+            className="w-full" 
+            onClick={requestMagicLink}
+            disabled={isLoading || !email}
+          >
+            {isLoading ? 'Sending...' : 'Send Magic Link'}
+          </Button>
+          <p className="text-xs text-gray-500 text-center">
+            We'll email you a magic link to sign in. No password needed!
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Main App Component (Protected)
+function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [weight, setWeight] = useState('')
   const [data, setData] = useState<WeightEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -25,12 +208,13 @@ function App() {
 
   const fetchWeights = async () => {
     try {
-      const response = await fetch('http://localhost:8000/weights')
-      const weights = await response.json()
-      setData(weights)
+      const response = await authFetch(`${API_URL}/weights`)
+      if (response.ok) {
+        const weights = await response.json()
+        setData(weights)
+      }
     } catch (error) {
-      alert('Failed to fetch weights')
-      console.error(error)
+      console.error('Failed to fetch weights', error)
     }
   }
 
@@ -42,7 +226,7 @@ function App() {
       const formData = new FormData()
       formData.append('weight', weight)
       
-      await fetch('http://localhost:8000/weight', {
+      await authFetch(`${API_URL}/weight`, {
         method: 'POST',
         body: formData,
       })
@@ -62,7 +246,7 @@ function App() {
     
     setDeletingId(id)
     try {
-      const response = await fetch(`http://localhost:8000/weight/${id}`, {
+      const response = await authFetch(`${API_URL}/weight/${id}`, {
         method: 'DELETE',
       })
       
@@ -88,7 +272,7 @@ function App() {
       const formData = new FormData()
       formData.append('image', file)
 
-      await fetch('http://localhost:8000/weight', {
+      await authFetch(`${API_URL}/weight`, {
         method: 'POST',
         body: formData,
       })
@@ -128,7 +312,16 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-8">Weight Tracker</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">Weight Tracker</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">{user.email}</span>
+            <Button variant="outline" size="sm" onClick={onLogout}>
+              <LogOut size={16} className="mr-2" />
+              Logout
+            </Button>
+          </div>
+        </div>
         
         <Card className="mb-6">
           <CardHeader>
@@ -212,6 +405,49 @@ function App() {
       </div>
     </div>
   )
+}
+
+// Root App Component
+function App() {
+  const [user, setUserState] = useState<User | null>(getUser())
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  useEffect(() => {
+    // Check if we have a valid token on mount
+    const token = getToken()
+    const storedUser = getUser()
+    
+    if (token && storedUser) {
+      setUserState(storedUser)
+    }
+    setIsInitialized(true)
+  }, [])
+
+  const handleLogin = (newUser: User, token: string) => {
+    setToken(token)
+    setUser(newUser)
+    setUserState(newUser)
+  }
+
+  const handleLogout = () => {
+    removeToken()
+    removeUser()
+    setUserState(null)
+  }
+
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <LandingPage onLogin={handleLogin} />
+  }
+
+  return <WeightTracker user={user} onLogout={handleLogout} />
 }
 
 export default App
