@@ -27,7 +27,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 MAGIC_LINK_EXPIRE_MINUTES = 15
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")  # Use your verified domain in production
+FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
 
 # Resend API key
 resend.api_key = os.getenv("RESEND_API_KEY", "")
@@ -56,7 +56,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     
     weights = relationship("WeightEntry", back_populates="user")
     magic_tokens = relationship("MagicLinkToken", back_populates="user")
@@ -77,7 +77,7 @@ class WeightEntry(Base):
     __tablename__ = "weights"
     id = Column(Integer, primary_key=True, index=True)
     weight = Column(Float)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
     method = Column(String)  # 'manual' or 'ocr'
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
