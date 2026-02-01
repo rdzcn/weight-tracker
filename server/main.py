@@ -117,7 +117,7 @@ def get_db():
 
 
 def create_access_token(user_id: int, email: str) -> str:
-    expire = datetime.datetime.utcnow() + datetime.timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     to_encode = {
         "sub": str(user_id),
         "email": email,
@@ -188,7 +188,7 @@ def request_magic_link(request: MagicLinkRequest, db=Depends(get_db)):
     
     # Create magic link token
     token = str(uuid.uuid4())
-    expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=MAGIC_LINK_EXPIRE_MINUTES)
+    expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=MAGIC_LINK_EXPIRE_MINUTES)
     
     magic_token = MagicLinkToken(
         token=token,
@@ -216,7 +216,7 @@ def verify_magic_link(token: str, db=Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid or already used token")
     
     # Check expiration
-    if magic_token.expires_at < datetime.datetime.utcnow():
+    if magic_token.expires_at < datetime.datetime.now(datetime.timezone.utc):
         raise HTTPException(status_code=400, detail="Token has expired")
     
     # Mark as used
