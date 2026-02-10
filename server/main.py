@@ -157,19 +157,24 @@ def send_magic_link_email(email: str, token: str):
         print(f"{'='*50}\n")
         return
     
-    resend.Emails.send({
-        "from": FROM_EMAIL,
-        "to": email,
-        "subject": "Your Magic Link to Weight Tracker",
-        "html": f"""
-        <h2>Welcome to Weight Tracker!</h2>
-        <p>Click the link below to sign in:</p>
-        <p><a href="{magic_link}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px;">Sign In</a></p>
-        <p>Or copy this link: {magic_link}</p>
-        <p>This link expires in {MAGIC_LINK_EXPIRE_MINUTES} minutes.</p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
-        """
-    })
+    try:
+        resend.Emails.send({
+            "from": FROM_EMAIL,
+            "to": email,
+            "subject": "Your Magic Link to Weight Tracker",
+            "html": f"""
+            <h2>Welcome to Weight Tracker!</h2>
+            <p>Click the link below to sign in:</p>
+            <p><a href="{magic_link}" style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px;">Sign In</a></p>
+            <p>Or copy this link: {magic_link}</p>
+            <p>This link expires in {MAGIC_LINK_EXPIRE_MINUTES} minutes.</p>
+            <p>If you didn't request this, you can safely ignore this email.</p>
+            """
+        })
+        print(f"✓ Magic link email sent successfully to {email}")
+    except Exception as e:
+        print(f"✗ Failed to send email via Resend: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
 
 # ==================== AUTH ENDPOINTS ====================
@@ -215,8 +220,10 @@ def verify_magic_link(token: str, db=Depends(get_db)):
     if not magic_token:
         raise HTTPException(status_code=400, detail="Invalid or already used token")
     
-    # Check expiration
-    if magic_token.expires_at < datetime.datetime.now(datetime.timezone.utc):
+    # Check expiration (make both datetimes timezone-aware for comparison)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    expires_at = magic_token.expires_at.replace(tzinfo=datetime.timezone.utc) if magic_token.expires_at.tzinfo is None else magic_token.expires_at
+    if expires_at < now:
         raise HTTPException(status_code=400, detail="Token has expired")
     
     # Mark as used
