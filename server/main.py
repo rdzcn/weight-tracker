@@ -220,10 +220,9 @@ def verify_magic_link(token: str, db=Depends(get_db)):
     if not magic_token:
         raise HTTPException(status_code=400, detail="Invalid or already used token")
     
-    # Check expiration (make both datetimes timezone-aware for comparison)
-    now = datetime.datetime.now(datetime.timezone.utc)
-    expires_at = magic_token.expires_at.replace(tzinfo=datetime.timezone.utc) if magic_token.expires_at.tzinfo is None else magic_token.expires_at
-    if expires_at < now:
+    # Check expiration (SQLite stores as naive UTC, compare as naive)
+    now_utc_naive = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    if magic_token.expires_at < now_utc_naive:
         raise HTTPException(status_code=400, detail="Token has expired")
     
     # Mark as used
@@ -285,7 +284,9 @@ async def add_weight(
     db.commit()
     db.refresh(entry)
     
-    return {"id": entry.id, "weight": entry.weight, "timestamp": entry.timestamp.isoformat(), "method": method}
+    # SQLite stores naive datetimes - treat as UTC and add explicit timezone
+    timestamp_utc = entry.timestamp.replace(tzinfo=datetime.timezone.utc) if entry.timestamp.tzinfo is None else entry.timestamp
+    return {"id": entry.id, "weight": entry.weight, "timestamp": timestamp_utc.isoformat(), "method": method}
 
 
 @app.get("/weights")
@@ -301,13 +302,26 @@ def get_weights(
     
     if start:
         start_dt = datetime.datetime.fromisoformat(start.replace('Z', '+00:00'))
+        # Convert to naive for SQLite comparison
+        start_dt = start_dt.replace(tzinfo=None)
         query = query.filter(WeightEntry.timestamp >= start_dt)
     if end:
         end_dt = datetime.datetime.fromisoformat(end.replace('Z', '+00:00'))
+        # Convert to naive for SQLite comparison
+        end_dt = end_dt.replace(tzinfo=None)
         query = query.filter(WeightEntry.timestamp <= end_dt)
     
     entries = query.all()
-    return [{"id": e.id, "weight": e.weight, "timestamp": e.timestamp.isoformat(), "method": e.method} for e in entries]
+    # SQLite stores naive datetimes - treat as UTC and add explicit timezone
+    return [
+        {
+            "id": e.id,
+            "weight": e.weight,
+            "timestamp": (e.timestamp.replace(tzinfo=datetime.timezone.utc) if e.timestamp.tzinfo is None else e.timestamp).isoformat(),
+            "method": e.method
+        }
+        for e in entries
+    ]
 
 
 @app.delete("/weight/{entry_id}")
