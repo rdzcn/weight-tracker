@@ -83,7 +83,7 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
       const data = await response.json();
       onLogin(data.user, data.access_token);
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to verify magic link');
+      Alert.alert('Verification Failed', error instanceof Error ? error.message : 'Failed to verify magic link');
     } finally {
       setVerifyingToken(false);
     }
@@ -107,7 +107,7 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
       
       setEmailSent(true);
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to send magic link');
+      Alert.alert('Failed to Send Magic Link', error instanceof Error ? error.message : 'Failed to send magic link');
     } finally {
       setIsLoading(false);
     }
@@ -180,7 +180,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
       const weights = await response.json();
       setData(weights);
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch weights');
+      Alert.alert('Error', 'Failed to fetch weight entries. Please try again.');
     }
   };
 
@@ -198,7 +198,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
       setWeight('');
       fetchWeights();
     } catch (error) {
-      Alert.alert('Error', 'Failed to submit weight');
+      Alert.alert('Failed to Submit Weight', 'There was an error submitting your weight entry. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -207,7 +207,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
   const deleteWeight = async (id: number) => {
     Alert.alert(
       'Delete Entry',
-      'Are you sure you want to delete this entry?',
+      'Are you sure you want to delete this weight entry? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -222,7 +222,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
               if (!response.ok) throw new Error('Failed to delete');
               fetchWeights();
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete weight entry');
+              Alert.alert('Deletion Failed', 'There was an error deleting the weight entry. Please try again.');
             } finally {
               setDeletingId(null);
             }
@@ -235,7 +235,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera roll permissions are required to select photos.');
+      Alert.alert('Permission Denied', 'Camera roll permissions are required to select photos. Please enable permissions in settings.');
       return;
     }
 
@@ -254,7 +254,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera permissions are required to take photos.');
+      Alert.alert('Permission Denied', 'Camera permissions are required to take photos. Please enable permissions in settings.');
       return;
     }
 
@@ -285,9 +285,9 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
         body: formData,
       });
       fetchWeights();
-      Alert.alert('Success', 'Weight extracted from photo!');
+      Alert.alert('Success', 'Weight extracted from photo successfully!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to upload photo');
+      Alert.alert('Upload Failed', 'There was an error uploading the photo. Please try again.');
     } finally {
       setIsLoading(false);
     }

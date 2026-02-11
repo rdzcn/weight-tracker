@@ -3,7 +3,39 @@ import './App.css'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/card'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from './components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './components/ui/dialog'
 import { Trash2, LogOut } from 'lucide-react'
+
+interface ModalState {
+  isOpen: boolean
+  title: string
+  message: string
+  type: 'error' | 'success' | 'info'
+  action?: () => void
+  actionLabel?: string
+}
+
+interface ConfirmModalState {
+  isOpen: boolean
+  title: string
+  message: string
+  onConfirm?: () => void
+  onCancel?: () => void
+}
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -54,6 +86,12 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [verifyingToken, setVerifyingToken] = useState(false)
+  const [modal, setModal] = useState<ModalState>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'error',
+  })
 
   useEffect(() => {
     // Check for magic link token in URL
@@ -65,6 +103,10 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
       verifyMagicLink(token)
     }
   }, [])
+
+  const showModal = (title: string, message: string, type: 'error' | 'success' | 'info' = 'info', action?: () => void) => {
+    setModal({ isOpen: true, title, message, type, action })
+  }
 
   const verifyMagicLink = async (token: string) => {
     setVerifyingToken(true)
@@ -79,8 +121,9 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
       // Clear URL params
       window.history.replaceState({}, '', '/')
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to verify magic link')
-      window.history.replaceState({}, '', '/')
+      showModal('Verification Failed', error instanceof Error ? error.message : 'Failed to verify magic link', 'error', () => {
+        window.history.replaceState({}, '', '/')
+      })
     } finally {
       setVerifyingToken(false)
     }
@@ -104,7 +147,7 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
       
       setEmailSent(true)
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to send magic link')
+      showModal('Failed to Send Magic Link', error instanceof Error ? error.message : 'Failed to send magic link', 'error')
     } finally {
       setIsLoading(false)
     }
@@ -127,6 +170,24 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
             </div>
           </CardContent>
         </Card>
+        <Dialog open={modal.isOpen} onOpenChange={(isOpen) => !isOpen && setModal({ ...modal, isOpen: false })}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{modal.title}</DialogTitle>
+              <DialogDescription>{modal.message}</DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={() => {
+                  modal.action?.()
+                  setModal({ ...modal, isOpen: false })
+                }}
+              >
+                OK
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
@@ -154,6 +215,24 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
             </Button>
           </CardContent>
         </Card>
+        <Dialog open={modal.isOpen} onOpenChange={(isOpen) => !isOpen && setModal({ ...modal, isOpen: false })}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{modal.title}</DialogTitle>
+              <DialogDescription>{modal.message}</DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={() => {
+                  modal.action?.()
+                  setModal({ ...modal, isOpen: false })
+                }}
+              >
+                OK
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
@@ -190,6 +269,25 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
           </p>
         </CardContent>
       </Card>
+      
+      <Dialog open={modal.isOpen} onOpenChange={(isOpen) => !isOpen && setModal({ ...modal, isOpen: false })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{modal.title}</DialogTitle>
+            <DialogDescription>{modal.message}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                modal.action?.()
+                setModal({ ...modal, isOpen: false })
+              }}
+            >
+              OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -201,10 +299,29 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
   const [isLoading, setIsLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [modal, setModal] = useState<ModalState>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'error',
+  })
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false,
+    title: '',
+    message: '',
+  })
 
   useEffect(() => {
     fetchWeights()
   }, [])
+
+  const showModal = (title: string, message: string, type: 'error' | 'success' | 'info' = 'info', action?: () => void) => {
+    setModal({ isOpen: true, title, message, type, action })
+  }
+
+  const showConfirm = (title: string, message: string, onConfirm?: () => void, onCancel?: () => void) => {
+    setConfirmModal({ isOpen: true, title, message, onConfirm, onCancel })
+  }
 
   const fetchWeights = async () => {
     try {
@@ -215,6 +332,7 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
       }
     } catch (error) {
       console.error('Failed to fetch weights', error)
+      showModal('Error', 'Failed to fetch weight entries', 'error')
     }
   }
 
@@ -235,7 +353,7 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
       setWeight('')
       fetchWeights()
     } catch (error) {
-      alert('Failed to submit weight')
+      showModal('Failed to Submit Weight', 'There was an error submitting your weight entry', 'error')
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -243,25 +361,29 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
   }
 
   const deleteWeight = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this entry?')) return
-    
-    setDeletingId(id)
-    try {
-      const response = await authFetch(`${API_URL}/weight/${id}`, {
-        method: 'DELETE',
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete')
+    showConfirm(
+      'Delete Entry',
+      'Are you sure you want to delete this weight entry? This action cannot be undone.',
+      async () => {
+        setDeletingId(id)
+        try {
+          const response = await authFetch(`${API_URL}/weight/${id}`, {
+            method: 'DELETE',
+          })
+          
+          if (!response.ok) {
+            throw new Error('Failed to delete')
+          }
+          
+          fetchWeights()
+        } catch (error) {
+          showModal('Deletion Failed', 'There was an error deleting the weight entry', 'error')
+          console.error(error)
+        } finally {
+          setDeletingId(null)
+        }
       }
-      
-      fetchWeights()
-    } catch (error) {
-      alert('Failed to delete weight entry')
-      console.error(error)
-    } finally {
-      setDeletingId(null)
-    }
+    )
   }
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,6 +394,7 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
     try {
       const formData = new FormData()
       formData.append('image', file)
+      formData.append('timestamp', new Date().toISOString())
 
       await authFetch(`${API_URL}/weight`, {
         method: 'POST',
@@ -279,9 +402,9 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
       })
 
       fetchWeights()
-      alert('Weight extracted from photo!')
+      showModal('Success', 'Weight extracted from photo successfully!', 'success')
     } catch (error) {
-      alert('Failed to upload photo')
+      showModal('Upload Failed', 'There was an error uploading the photo', 'error')
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -404,6 +527,51 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
           </CardContent>
         </Card>
       </div>
+
+      {/* Error/Success/Info Modal */}
+      <Dialog open={modal.isOpen} onOpenChange={(isOpen) => !isOpen && setModal({ ...modal, isOpen: false })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{modal.title}</DialogTitle>
+            <DialogDescription>{modal.message}</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={() => {
+                modal.action?.()
+                setModal({ ...modal, isOpen: false })
+              }}
+            >
+              OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Modal */}
+      <AlertDialog open={confirmModal.isOpen} onOpenChange={(isOpen) => !isOpen && setConfirmModal({ ...confirmModal, isOpen: false })}>
+        <AlertDialogContent>
+          <AlertDialogTitle>{confirmModal.title}</AlertDialogTitle>
+          <AlertDialogDescription>{confirmModal.message}</AlertDialogDescription>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel onClick={() => {
+              confirmModal.onCancel?.()
+              setConfirmModal({ ...confirmModal, isOpen: false })
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                confirmModal.onConfirm?.()
+                setConfirmModal({ ...confirmModal, isOpen: false })
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
