@@ -225,6 +225,7 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
     try {
       const formData = new FormData()
       formData.append('weight', weight)
+      formData.append('timestamp', new Date().toISOString())
       
       await authFetch(`${API_URL}/weight`, {
         method: 'POST',

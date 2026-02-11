@@ -190,6 +190,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
     try {
       const formData = new FormData();
       formData.append('weight', weight);
+      formData.append('timestamp', new Date().toISOString());
       await authFetch(`${API_URL}/weight`, {
         method: 'POST',
         body: formData,
@@ -277,6 +278,7 @@ function WeightTrackerScreen({ user, onLogout }: { user: User; onLogout: () => v
         type: 'image/jpeg',
         name: 'photo.jpg',
       } as any);
+      formData.append('timestamp', new Date().toISOString());
 
       await authFetch(`${API_URL}/weight`, {
         method: 'POST',

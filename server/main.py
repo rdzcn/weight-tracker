@@ -261,6 +261,7 @@ def get_me(current_user: User = Depends(get_current_user)):
 async def add_weight(
     weight: Optional[float] = Form(None),
     image: Optional[UploadFile] = File(None),
+    timestamp: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db=Depends(get_db)
 ):
@@ -279,7 +280,17 @@ async def add_weight(
         else:
             raise HTTPException(status_code=400, detail="Could not extract weight from image")
     
-    entry = WeightEntry(weight=weight, method=method, user_id=current_user.id)
+    # Use client-provided timestamp if available, otherwise use server UTC time
+    entry_timestamp = None
+    if timestamp:
+        try:
+            # Parse ISO timestamp from client and convert to naive UTC for SQLite
+            entry_timestamp = datetime.datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            entry_timestamp = entry_timestamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            pass  # Fall back to default server time if parsing fails
+    
+    entry = WeightEntry(weight=weight, method=method, user_id=current_user.id, timestamp=entry_timestamp)
     db.add(entry)
     db.commit()
     db.refresh(entry)
