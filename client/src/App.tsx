@@ -1,4 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
 import './App.css'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
@@ -292,6 +301,64 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
   )
 }
 
+// Weight Chart Component
+function WeightChart({ data }: { data: WeightEntry[] }) {
+  const chartData = useMemo(() => {
+    return [...data]
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .map((entry) => {
+        const date = new Date(entry.timestamp)
+        const label = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+        return { date: label, weight: entry.weight }
+      })
+  }, [data])
+
+  const weights = chartData.map((d) => d.weight)
+  const minWeight = Math.floor(Math.min(...weights)) - 1
+  const maxWeight = Math.ceil(Math.max(...weights)) + 1
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>Progress</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 12, fill: '#6b7280' }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              domain={[minWeight, maxWeight]}
+              tick={{ fontSize: 12, fill: '#6b7280' }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v) => `${v} kg`}
+              width={54}
+            />
+            <Tooltip
+              formatter={(value) => [`${value} kg`, 'Weight']}
+              contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+            />
+            <Line
+              type="monotone"
+              dataKey="weight"
+              stroke="#2563eb"
+              strokeWidth={2}
+              dot={{ r: 4, fill: '#2563eb', strokeWidth: 0 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}
+
 // Main App Component (Protected)
 function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [weight, setWeight] = useState('')
@@ -486,6 +553,10 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
             </div>
           </CardContent>
         </Card>
+
+        {data.length >= 2 && (
+          <WeightChart data={data} />
+        )}
 
         <Card>
           <CardHeader>
