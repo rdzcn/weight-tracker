@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './components/ui/dialog'
-import { Trash2, LogOut } from 'lucide-react'
+import { Trash2, LogOut, Download } from 'lucide-react'
 
 interface ModalState {
   isOpen: boolean
@@ -510,6 +510,29 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
     }
   }
 
+  const exportCSV = () => {
+    const sorted = [...data].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    )
+    const rows = [
+      ['Date', 'Time', 'Weight (kg)', 'Method'],
+      ...sorted.map((entry) => {
+        const date = new Date(entry.timestamp)
+        const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+        const timeStr = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+        return [dateStr, timeStr, entry.weight, entry.method === 'ocr' ? 'Photo' : 'Manual']
+      }),
+    ]
+    const csv = rows.map((r) => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `weight-history-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -582,8 +605,14 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
         )}
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Weight History</CardTitle>
+            {data.length > 0 && (
+              <Button variant="outline" size="sm" onClick={exportCSV}>
+                <Download size={15} className="mr-1.5" />
+                Export CSV
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {data.length === 0 ? (
