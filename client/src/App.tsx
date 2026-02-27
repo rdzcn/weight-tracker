@@ -8,10 +8,21 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import './App.css'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/card'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from './components/ui/form'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -382,6 +393,13 @@ function WeightChart({ data }: { data: WeightEntry[] }) {
   )
 }
 
+const editFormSchema = z.object({
+  weight: z.string().min(1, 'Weight is required'),
+  date: z.string().min(1, 'Date is required'),
+  time: z.string().min(1, 'Time is required'),
+})
+type EditFormValues = z.infer<typeof editFormSchema>
+
 // Main App Component (Protected)
 function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [weight, setWeight] = useState('')
@@ -389,11 +407,13 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
   const [isLoading, setIsLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [editEntry, setEditEntry] = useState<WeightEntry | null>(null)
-  const [editWeight, setEditWeight] = useState('')
-  const [editDate, setEditDate] = useState('')
-  const [editTime, setEditTime] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const editForm = useForm<EditFormValues>({
+    resolver: zodResolver(editFormSchema),
+    defaultValues: { weight: '', date: '', time: '' },
+    mode: 'onChange',
+  })
   const [modal, setModal] = useState<ModalState>({
     isOpen: false,
     title: '',
@@ -488,21 +508,23 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
     const dd = String(d.getDate()).padStart(2, '0')
     const hh = String(d.getHours()).padStart(2, '0')
     const min = String(d.getMinutes()).padStart(2, '0')
+    editForm.reset({
+      weight: String(item.weight),
+      date: `${yyyy}-${mm}-${dd}`,
+      time: `${hh}:${min}`,
+    })
     setEditEntry(item)
-    setEditWeight(String(item.weight))
-    setEditDate(`${yyyy}-${mm}-${dd}`)
-    setEditTime(`${hh}:${min}`)
   }
 
-  const saveEdit = async () => {
-    if (!editEntry || !editWeight || !editDate || !editTime) return
+  const onEditSubmit = async (values: EditFormValues) => {
+    if (!editEntry) return
     setIsSavingEdit(true)
     try {
-      const newTimestamp = new Date(`${editDate}T${editTime}:00`).toISOString()
+      const newTimestamp = new Date(`${values.date}T${values.time}:00`).toISOString()
       const response = await authFetch(`${API_URL}/weight/${editEntry.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weight: parseFloat(editWeight), timestamp: newTimestamp }),
+        body: JSON.stringify({ weight: parseFloat(values.weight), timestamp: newTimestamp }),
       })
       if (!response.ok) throw new Error('Failed to update')
       setEditEntry(null)
@@ -704,41 +726,57 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
             <DialogTitle>Edit Weight Entry</DialogTitle>
             <DialogDescription>Update the weight, date, or time for this entry.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Weight (kg)</label>
-              <Input
-                type="number"
-                step="0.1"
-                value={editWeight}
-                onChange={(e) => setEditWeight(e.target.value)}
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-2">
+              <FormField
+                control={editForm.control}
+                name="weight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Weight (kg)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.1" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Date</label>
-              <Input
-                type="date"
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
+              <FormField
+                control={editForm.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Time</label>
-              <Input
-                type="time"
-                value={editTime}
-                onChange={(e) => setEditTime(e.target.value)}
+              <FormField
+                control={editForm.control}
+                name="time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Time</FormLabel>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setEditEntry(null)} disabled={isSavingEdit}>
-                Cancel
-              </Button>
-              <Button onClick={saveEdit} disabled={isSavingEdit || !editWeight || !editDate || !editTime}>
-                {isSavingEdit ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-          </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setEditEntry(null)} disabled={isSavingEdit}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSavingEdit || !editForm.formState.isValid}>
+                  {isSavingEdit ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
