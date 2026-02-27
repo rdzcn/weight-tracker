@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from './components/ui/dialog'
-import { Trash2, LogOut, Download } from 'lucide-react'
+import { Trash2, LogOut, Download, Pencil } from 'lucide-react'
 
 interface ModalState {
   isOpen: boolean
@@ -388,6 +388,11 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
   const [data, setData] = useState<WeightEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [editEntry, setEditEntry] = useState<WeightEntry | null>(null)
+  const [editWeight, setEditWeight] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editTime, setEditTime] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [modal, setModal] = useState<ModalState>({
     isOpen: false,
@@ -474,6 +479,40 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
         }
       }
     )
+  }
+
+  const openEditDialog = (item: WeightEntry) => {
+    const d = new Date(item.timestamp)
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    const hh = String(d.getHours()).padStart(2, '0')
+    const min = String(d.getMinutes()).padStart(2, '0')
+    setEditEntry(item)
+    setEditWeight(String(item.weight))
+    setEditDate(`${yyyy}-${mm}-${dd}`)
+    setEditTime(`${hh}:${min}`)
+  }
+
+  const saveEdit = async () => {
+    if (!editEntry || !editWeight || !editDate || !editTime) return
+    setIsSavingEdit(true)
+    try {
+      const newTimestamp = new Date(`${editDate}T${editTime}:00`).toISOString()
+      const response = await authFetch(`${API_URL}/weight/${editEntry.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight: parseFloat(editWeight), timestamp: newTimestamp }),
+      })
+      if (!response.ok) throw new Error('Failed to update')
+      setEditEntry(null)
+      fetchWeights()
+    } catch (error) {
+      showModal('Update Failed', 'There was an error updating the weight entry', 'error')
+      console.error(error)
+    } finally {
+      setIsSavingEdit(false)
+    }
   }
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -635,6 +674,13 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
                         {formatDate(item.timestamp)}
                       </span>
                       <button
+                        onClick={() => openEditDialog(item)}
+                        className="p-2 hover:bg-blue-100 text-blue-600 rounded-md transition-colors"
+                        title="Edit entry"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
                         onClick={() => deleteWeight(item.id)}
                         disabled={deletingId === item.id}
                         className="p-2 hover:bg-red-100 text-red-600 rounded-md transition-colors disabled:opacity-50"
@@ -650,6 +696,51 @@ function WeightTracker({ user, onLogout }: { user: User; onLogout: () => void })
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Entry Modal */}
+      <Dialog open={!!editEntry} onOpenChange={(isOpen) => !isOpen && setEditEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Weight Entry</DialogTitle>
+            <DialogDescription>Update the weight, date, or time for this entry.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Weight (kg)</label>
+              <Input
+                type="number"
+                step="0.1"
+                value={editWeight}
+                onChange={(e) => setEditWeight(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Date</label>
+              <Input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Time</label>
+              <Input
+                type="time"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditEntry(null)} disabled={isSavingEdit}>
+                Cancel
+              </Button>
+              <Button onClick={saveEdit} disabled={isSavingEdit || !editWeight || !editDate || !editTime}>
+                {isSavingEdit ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Error/Success/Info Modal */}
       <Dialog open={modal.isOpen} onOpenChange={(isOpen) => !isOpen && setModal({ ...modal, isOpen: false })}>

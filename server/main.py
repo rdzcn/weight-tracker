@@ -354,6 +354,48 @@ def delete_weight(
     return {"id": entry_id, "message": "Weight entry deleted successfully"}
 
 
+class WeightUpdateRequest(BaseModel):
+    weight: Optional[float] = None
+    timestamp: Optional[str] = None
+
+
+@app.put("/weight/{entry_id}")
+def update_weight(
+    entry_id: int,
+    body: WeightUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db=Depends(get_db)
+):
+    entry = db.query(WeightEntry).filter(
+        WeightEntry.id == entry_id,
+        WeightEntry.user_id == current_user.id
+    ).first()
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="Weight entry not found")
+
+    if body.weight is not None:
+        entry.weight = body.weight
+
+    if body.timestamp is not None:
+        try:
+            parsed = datetime.datetime.fromisoformat(body.timestamp.replace('Z', '+00:00'))
+            entry.timestamp = parsed.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid timestamp format")
+
+    db.commit()
+    db.refresh(entry)
+
+    timestamp_utc = entry.timestamp.replace(tzinfo=datetime.timezone.utc) if entry.timestamp.tzinfo is None else entry.timestamp
+    return {
+        "id": entry.id,
+        "weight": entry.weight,
+        "timestamp": timestamp_utc.isoformat(),
+        "method": entry.method,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
