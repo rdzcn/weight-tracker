@@ -21,12 +21,31 @@ load_dotenv()
 
 app = FastAPI()
 
+
+def normalize_url(url: str) -> str:
+    return url.rstrip("/")
+
+
+def parse_allowed_origins(value: str) -> List[str]:
+    origins: List[str] = []
+    for raw_origin in value.split(","):
+        origin = normalize_url(raw_origin.strip())
+        if origin and origin not in origins:
+            origins.append(origin)
+    return origins
+
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 MAGIC_LINK_EXPIRE_MINUTES = 15
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173", "https://w8tracker.ardinho.com/")
+FRONTEND_URL = normalize_url(os.getenv("FRONTEND_URL", "http://localhost:5173"))
+CORS_ALLOWED_ORIGINS = parse_allowed_origins(
+    os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        f"http://localhost:5173,{FRONTEND_URL},https://w8tracker.ardinho.com",
+    )
+)
 FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
 
 # Resend API key
@@ -35,7 +54,7 @@ resend.api_key = os.getenv("RESEND_API_KEY", "")
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
