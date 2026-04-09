@@ -57,7 +57,7 @@ interface ConfirmModalState {
   onCancel?: () => void
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 interface WeightEntry {
   id: number;
@@ -273,7 +273,7 @@ function LandingPage({ onLogin }: { onLogin: (user: User, token: string) => void
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               disabled={isLoading}
             />
           </div>

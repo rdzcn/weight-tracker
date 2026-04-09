@@ -26,7 +26,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 MAGIC_LINK_EXPIRE_MINUTES = 15
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173", "https://w8tracker.ardinho.com/")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
 
 # Resend API key
@@ -178,6 +178,10 @@ def send_magic_link_email(email: str, token: str):
 
 
 # ==================== AUTH ENDPOINTS ====================
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.post("/auth/request-magic-link")
 def request_magic_link(request: MagicLinkRequest, db=Depends(get_db)):
