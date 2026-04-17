@@ -12,29 +12,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import type { WeightEntry } from '../lib/auth'
 
 // Custom X-axis tick: shows label only for Mondays
-function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string | { isMonday?: boolean; dateStr?: string } } }) {
-  if (x === undefined || y === undefined || !payload) return null
+function ChartTick({ x, y, payload, chartData }: { x?: number; y?: number; payload?: { value: string }; chartData?: Array<{ index: string; xAxisLabel: { isMonday: boolean; dateStr: string } }> }) {
+  if (x === undefined || y === undefined || !payload || !chartData) return null
 
-  // Handle both string and object payloads
-  let isMonday = false
-  let dateStr = ''
+  const index = parseInt(payload.value || '0', 10)
+  const dataPoint = chartData[index]
 
-  if (typeof payload.value === 'string') {
-    // Legacy format (shouldn't happen, but for safety)
-    const parts = payload.value.split('|')
-    dateStr = parts[1] || ''
-  } else if (typeof payload.value === 'object' && payload.value !== null) {
-    isMonday = payload.value.isMonday || false
-    dateStr = payload.value.dateStr || ''
+  if (!dataPoint || !dataPoint.xAxisLabel.isMonday) {
+    return null
   }
-
-  // Only render label for Mondays
-  if (!isMonday) return null
 
   return (
     <g transform={`translate(${x},${y})`}>
       <text x={0} y={0} dy={12} textAnchor="middle" fontSize={12} fill="#374151">
-        {dateStr}
+        {dataPoint.xAxisLabel.dateStr}
       </text>
     </g>
   )
@@ -46,7 +37,7 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     )
 
-    return sorted.map((entry) => {
+    return sorted.map((entry, index) => {
       const date = new Date(entry.timestamp)
       const dayOfWeek = date.getDay()
       const isMonday = dayOfWeek === 1
@@ -54,14 +45,19 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
       const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
 
       return {
+        index: String(index),
         weight: entry.weight,
-        dateDisplay: {
+        xAxisLabel: {
           isMonday,
           dateStr,
         },
       }
     })
   }, [data])
+
+  if (chartData.length === 0) {
+    return null
+  }
 
   const weights = chartData.map((d) => d.weight)
   const minWeight = Math.floor(Math.min(...weights)) - 1
@@ -77,8 +73,8 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
           <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis
-              dataKey="dateDisplay"
-              tick={(props) => <ChartTick {...props} />}
+              dataKey="index"
+              tick={(props) => <ChartTick chartData={chartData} {...props} />}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
