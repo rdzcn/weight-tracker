@@ -9,19 +9,32 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import type { WeightEntry } from '../lib/auth';
+import type { WeightEntry } from '../lib/auth'
 
-// Custom X-axis tick: shows HH:mm on top, dd/MM below
-function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+// Custom X-axis tick: shows label only for Mondays
+function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string | { isMonday?: boolean; dateStr?: string } } }) {
   if (x === undefined || y === undefined || !payload) return null
-  const [time, date] = (payload.value ?? '').split('|')
+
+  // Handle both string and object payloads
+  let isMonday = false
+  let dateStr = ''
+
+  if (typeof payload.value === 'string') {
+    // Legacy format (shouldn't happen, but for safety)
+    const parts = payload.value.split('|')
+    dateStr = parts[1] || ''
+  } else if (typeof payload.value === 'object' && payload.value !== null) {
+    isMonday = payload.value.isMonday || false
+    dateStr = payload.value.dateStr || ''
+  }
+
+  // Only render label for Mondays
+  if (!isMonday) return null
+
   return (
     <g transform={`translate(${x},${y})`}>
       <text x={0} y={0} dy={12} textAnchor="middle" fontSize={12} fill="#374151">
-        {time}
-      </text>
-      <text x={0} y={0} dy={26} textAnchor="middle" fontSize={10} fill="#9ca3af">
-        {date}
+        {dateStr}
       </text>
     </g>
   )
@@ -29,15 +42,25 @@ function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { valu
 
 export function WeightChart({ data }: { data: WeightEntry[] }) {
   const chartData = useMemo(() => {
-    return [...data]
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .map((entry) => {
-        const date = new Date(entry.timestamp)
-        const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-        const day = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
-        // pipe-separated so the custom tick can split them
-        return { date: `${time}|${day}`, weight: entry.weight, time, day }
-      })
+    const sorted = [...data].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    )
+
+    return sorted.map((entry) => {
+      const date = new Date(entry.timestamp)
+      const dayOfWeek = date.getDay()
+      const isMonday = dayOfWeek === 1
+
+      const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+
+      return {
+        weight: entry.weight,
+        dateDisplay: {
+          isMonday,
+          dateStr,
+        },
+      }
+    })
   }, [data])
 
   const weights = chartData.map((d) => d.weight)
@@ -51,14 +74,14 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 24 }}>
+          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis
-              dataKey="date"
+              dataKey="dateDisplay"
               tick={(props) => <ChartTick {...props} />}
               tickLine={false}
               axisLine={false}
-              interval={0}
+              interval="preserveStartEnd"
             />
             <YAxis
               domain={[minWeight, maxWeight]}
@@ -70,10 +93,7 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
             />
             <Tooltip
               formatter={(value) => [`${value} kg`, 'Weight']}
-              labelFormatter={(label: string) => {
-                const [time, date] = label.split('|')
-                return `${date} ${time}`
-              }}
+              labelFormatter={() => ''}
               contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
             />
             <Line
