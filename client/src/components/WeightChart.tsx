@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { WeightEntry } from '../lib/auth'
+import type { WeightEntry } from '../lib/auth';
 
 // Custom X-axis tick: shows HH:mm on top, dd/MM below
 function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {

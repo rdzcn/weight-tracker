@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import {
   Form,
   FormControl,
@@ -30,7 +30,7 @@ import {
 } from './ui/dialog'
 import { Trash2, LogOut, Download, Pencil } from 'lucide-react'
 import { WeightChart } from './WeightChart'
-import { User, WeightEntry, API_URL, authFetch } from '../lib/auth'
+import { type User, type WeightEntry, API_URL, authFetch } from '../lib/auth'
 
 interface ModalState {
   isOpen: boolean
