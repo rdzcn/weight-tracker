@@ -12,20 +12,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import type { WeightEntry } from '../lib/auth'
 
 // Custom X-axis tick: shows label only for Mondays
-function ChartTick({ x, y, payload, chartData }: { x?: number; y?: number; payload?: { value: string }; chartData?: Array<{ index: string; xAxisLabel: { isMonday: boolean; dateStr: string } }> }) {
-  if (x === undefined || y === undefined || !payload || !chartData) return null
+function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+  if (x === undefined || y === undefined || !payload) return null
 
-  const index = parseInt(payload.value || '0', 10)
-  const dataPoint = chartData[index]
+  // payload.value format: "DD/MM|isMonday"
+  const parts = (payload.value || '').split('|')
+  const dateStr = parts[0] || ''
+  const isMonday = parts[1] === 'true'
 
-  if (!dataPoint || !dataPoint.xAxisLabel.isMonday) {
-    return null
-  }
+  // Only render label for Mondays
+  if (!isMonday) return null
 
   return (
     <g transform={`translate(${x},${y})`}>
       <text x={0} y={0} dy={12} textAnchor="middle" fontSize={12} fill="#374151">
-        {dataPoint.xAxisLabel.dateStr}
+        {dateStr}
       </text>
     </g>
   )
@@ -37,20 +38,21 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     )
 
-    return sorted.map((entry, index) => {
+    return sorted.map((entry) => {
       const date = new Date(entry.timestamp)
       const dayOfWeek = date.getDay()
       const isMonday = dayOfWeek === 1
 
       const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
+      const fullDateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+      const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 
+      // Format for x-axis: "DD/MM|true/false" so the custom tick can parse it
       return {
-        index: String(index),
+        dateDisplay: `${dateStr}|${isMonday}`,
+        fullDate: fullDateStr,
+        time,
         weight: entry.weight,
-        xAxisLabel: {
-          isMonday,
-          dateStr,
-        },
       }
     })
   }, [data])
@@ -73,8 +75,8 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
           <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis
-              dataKey="index"
-              tick={(props) => <ChartTick chartData={chartData} {...props} />}
+              dataKey="dateDisplay"
+              tick={(props) => <ChartTick {...props} />}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
@@ -89,7 +91,13 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
             />
             <Tooltip
               formatter={(value) => [`${value} kg`, 'Weight']}
-              labelFormatter={() => ''}
+              labelFormatter={(_, payload) => {
+                if (payload && payload.length > 0) {
+                  const data = payload[0].payload
+                  return `${data.fullDate} ${data.time}`
+                }
+                return ''
+              }}
               contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
             />
             <Line
@@ -98,6 +106,14 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
               stroke="#2563eb"
               strokeWidth={2}
               dot={{ r: 4, fill: '#2563eb', strokeWidth: 0 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  )
+}
               activeDot={{ r: 6 }}
             />
           </LineChart>
