@@ -114,11 +114,3 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
     </Card>
   )
 }
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
-  )
-}
