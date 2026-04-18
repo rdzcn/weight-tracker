@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   LineChart,
   Line,
@@ -11,17 +11,20 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import type { WeightEntry } from '../lib/auth'
 
-// Custom X-axis tick: shows label only for Mondays
-function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+// Custom X-axis tick: shows label every 5 days on desktop, none on mobile
+function ChartTick({ x, y, payload, isDesktop }: { x?: number; y?: number; payload?: { value: string }; isDesktop?: boolean }) {
   if (x === undefined || y === undefined || !payload) return null
 
-  // payload.value format: "DD/MM|isMonday"
-  const parts = (payload.value || '').split('|')
-  const dateStr = parts[0] || ''
-  const isMonday = parts[1] === 'true'
+  // If mobile, don't show any labels
+  if (!isDesktop) return null
 
-  // Only render label for Mondays
-  if (!isMonday) return null
+  // payload.value format: "index|DD/MM"
+  const parts = (payload.value || '').split('|')
+  const index = parseInt(parts[0] || '0', 10)
+  const dateStr = parts[1] || ''
+
+  // Only render label every 5 days
+  if (index % 5 !== 0) return null
 
   return (
     <g transform={`translate(${x},${y})`}>
@@ -33,23 +36,32 @@ function ChartTick({ x, y, payload }: { x?: number; y?: number; payload?: { valu
 }
 
 export function WeightChart({ data }: { data: WeightEntry[] }) {
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const chartData = useMemo(() => {
     const sorted = [...data].sort(
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     )
 
-    return sorted.map((entry) => {
+    return sorted.map((entry, index) => {
       const date = new Date(entry.timestamp)
-      const dayOfWeek = date.getDay()
-      const isMonday = dayOfWeek === 1
 
       const dateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
       const fullDateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
       const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 
-      // Format for x-axis: "DD/MM|true/false" so the custom tick can parse it
+      // Format for x-axis: "index|DD/MM" so the custom tick can parse it
       return {
-        dateDisplay: `${dateStr}|${isMonday}`,
+        dateDisplay: `${index}|${dateStr}`,
         fullDate: fullDateStr,
         time,
         weight: entry.weight,
@@ -76,7 +88,7 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis
               dataKey="dateDisplay"
-              tick={(props) => <ChartTick {...props} />}
+              tick={(props) => <ChartTick {...props} isDesktop={isDesktop} />}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
