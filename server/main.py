@@ -358,13 +358,6 @@ async def add_weight(
     db.add(entry)
     db.commit()
     db.refresh(entry)
-        except ValueError:
-            pass  # Fall back to default server time if parsing fails
-    
-    entry = WeightEntry(weight=weight, method=method, user_id=current_user.id, timestamp=entry_timestamp)
-    db.add(entry)
-    db.commit()
-    db.refresh(entry)
     
     # SQLite stores naive datetimes - treat as UTC and add explicit timezone
     timestamp_utc = entry.timestamp.replace(tzinfo=datetime.timezone.utc) if entry.timestamp.tzinfo is None else entry.timestamp
