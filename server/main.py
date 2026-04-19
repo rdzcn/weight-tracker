@@ -295,41 +295,54 @@ async def add_weight(
     method = 'manual'
     if image:
         image_data = await image.read()
-        img = Image.open(io.BytesIO(image_data))
+        img_original = Image.open(io.BytesIO(image_data))
         
-        # Preprocess image for better OCR
-        # Convert to grayscale
-        img = img.convert('L')
+        # Try multiple preprocessing approaches
+        extraction_attempts = []
         
-        # Increase contrast for digital displays
+        # Attempt 1: Grayscale + Contrast + Brightness
+        img = img_original.convert('L')
         enhancer = ImageEnhance.Contrast(img)
         img = enhancer.enhance(2)
-        
-        # Increase brightness slightly
         enhancer = ImageEnhance.Brightness(img)
         img = enhancer.enhance(1.2)
-        
-        # Apply threshold to make text more distinct
         img_array = np.array(img)
         threshold = np.mean(img_array)
         img_array = np.where(img_array > threshold, 255, 0).astype('uint8')
         img = Image.fromarray(img_array)
+        text = pytesseract.image_to_string(img, config='--psm 6 -c tessedit_char_whitelist=0123456789.,')
+        extraction_attempts.append(text.strip())
         
-        # Try OCR with preprocessing
-        text = pytesseract.image_to_string(img)
+        # Attempt 2: Try inverted colors (in case scale has light text on dark)
+        img = img_original.convert('L')
+        img_array = 255 - np.array(img)
+        img = Image.fromarray(img_array.astype('uint8'))
+        text = pytesseract.image_to_string(img, config='--psm 6 -c tessedit_char_whitelist=0123456789.,')
+        extraction_attempts.append(text.strip())
         
-        # Extract weight with flexible patterns
-        # Matches: 53.8, 53,8, 53 8, or just 53
-        match = re.search(r'(\d+)[.,\s]?(\d+)?', text)
-        if match:
-            whole = match.group(1)
-            decimal = match.group(2) or '0'
-            # Ensure decimal part is only 1-2 digits
-            decimal = (decimal[:2] if len(decimal) >= 2 else decimal).ljust(1, '0')
-            weight = float(f"{whole}.{decimal}")
-            method = 'ocr'
-        else:
-            raise HTTPException(status_code=400, detail="Could not extract weight from image")
+        # Attempt 3: Just grayscale with OCR
+        img = img_original.convert('L')
+        text = pytesseract.image_to_string(img, config='--psm 6 -c tessedit_char_whitelist=0123456789.,')
+        extraction_attempts.append(text.strip())
+        
+        # Try to extract number from all attempts
+        for extracted_text in extraction_attempts:
+            # Extract weight with flexible patterns
+            # Matches: 53.8, 53,8, 53 8, 53.8kg, (53.8), etc
+            match = re.search(r'(\d+)[.,\s]?(\d+)?', extracted_text)
+            if match:
+                whole = match.group(1)
+                decimal = match.group(2) or '0'
+                # Ensure decimal part is only 1-2 digits
+                decimal = (decimal[:2] if len(decimal) >= 2 else decimal).ljust(1, '0')
+                weight = float(f"{whole}.{decimal}")
+                method = 'ocr'
+                break
+        
+        if method != 'ocr':
+            # Log all attempts for debugging
+            attempts_info = " | ".join([f"[{i}]: {text}" for i, text in enumerate(extraction_attempts)])
+            raise HTTPException(status_code=400, detail=f"Could not extract weight from image. Attempts: {attempts_info}")
     
     # Use client-provided timestamp if available, otherwise use server UTC time
     entry_timestamp = None
@@ -338,6 +351,13 @@ async def add_weight(
             # Parse ISO timestamp from client and convert to naive UTC for SQLite
             entry_timestamp = datetime.datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
             entry_timestamp = entry_timestamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            pass  # Fall back to default server time if parsing fails
+    
+    entry = WeightEntry(weight=weight, method=method, user_id=current_user.id, timestamp=entry_timestamp)
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
         except ValueError:
             pass  # Fall back to default server time if parsing fails
     
