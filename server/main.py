@@ -8,12 +8,13 @@ from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 import datetime
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageEnhance
 import io
 import re
 import os
 import uuid
 import resend
+import numpy as np
 from typing import List, Optional
 
 # Load environment variables from .env file
@@ -295,10 +296,37 @@ async def add_weight(
     if image:
         image_data = await image.read()
         img = Image.open(io.BytesIO(image_data))
+        
+        # Preprocess image for better OCR
+        # Convert to grayscale
+        img = img.convert('L')
+        
+        # Increase contrast for digital displays
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(2)
+        
+        # Increase brightness slightly
+        enhancer = ImageEnhance.Brightness(img)
+        img = enhancer.enhance(1.2)
+        
+        # Apply threshold to make text more distinct
+        img_array = np.array(img)
+        threshold = np.mean(img_array)
+        img_array = np.where(img_array > threshold, 255, 0).astype('uint8')
+        img = Image.fromarray(img_array)
+        
+        # Try OCR with preprocessing
         text = pytesseract.image_to_string(img)
-        match = re.search(r'(\d+\.?\d*)', text)
+        
+        # Extract weight with flexible patterns
+        # Matches: 53.8, 53,8, 53 8, or just 53
+        match = re.search(r'(\d+)[.,\s]?(\d+)?', text)
         if match:
-            weight = float(match.group(1))
+            whole = match.group(1)
+            decimal = match.group(2) or '0'
+            # Ensure decimal part is only 1-2 digits
+            decimal = (decimal[:2] if len(decimal) >= 2 else decimal).ljust(1, '0')
+            weight = float(f"{whole}.{decimal}")
             method = 'ocr'
         else:
             raise HTTPException(status_code=400, detail="Could not extract weight from image")

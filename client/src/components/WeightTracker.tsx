@@ -202,15 +202,20 @@ export function WeightTracker({ user, onLogout }: { user: User; onLogout: () => 
       formData.append('image', file)
       formData.append('timestamp', new Date().toISOString())
 
-      await authFetch(`${API_URL}/weight`, {
+      const response = await authFetch(`${API_URL}/weight`, {
         method: 'POST',
         body: formData,
       })
 
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Failed to extract weight from image')
+      }
+
       fetchWeights()
       showModal('Success', 'Weight extracted from photo successfully!', 'success')
     } catch (error) {
-      showModal('Upload Failed', 'There was an error uploading the photo', 'error')
+      showModal('Upload Failed', error instanceof Error ? error.message : 'There was an error uploading the photo', 'error')
       console.error(error)
     } finally {
       setIsLoading(false)

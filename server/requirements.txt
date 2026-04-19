@@ -10,3 +10,4 @@ python-jose[cryptography]
 resend
 pydantic[email]
 python-dotenv
+numpy
