@@ -91,7 +91,7 @@ export function WeightChart({ data }: { data: WeightEntry[] }) {
               tick={(props) => <ChartTick {...props} isDesktop={isDesktop} />}
               tickLine={false}
               axisLine={false}
-              interval="preserveStartEnd"
+              interval={4}
             />
             <YAxis
               domain={[minWeight, maxWeight]}
