@@ -3,11 +3,8 @@ uvicorn[standard]
 sqlalchemy
 alembic
 python-multipart
-pytesseract
-pillow
 python-dateutil
 python-jose[cryptography]
 resend
 pydantic[email]
 python-dotenv
-numpy

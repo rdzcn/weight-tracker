@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from './ui/dialog'
 import { type User, API_URL } from '../lib/auth'
-import { Zap, TrendingDown, BarChart3, Camera } from 'lucide-react'
+import { Zap, TrendingDown, BarChart3 } from 'lucide-react'
 
 interface ModalState {
   isOpen: boolean
@@ -224,7 +224,7 @@ export function LandingPage({ onLogin }: { onLogin: (user: User, token: string) 
                 Track Your Weight, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Achieve Your Goals</span>
               </h1>
               <p className="text-xl text-gray-600 leading-relaxed">
-                Simple, intuitive weight tracking with powerful insights. Log daily entries manually or capture photos for automatic weight extraction.
+                Simple, intuitive weight tracking with powerful insights. Log your daily weight entries effortlessly.
               </p>
             </div>
 
@@ -237,16 +237,6 @@ export function LandingPage({ onLogin }: { onLogin: (user: User, token: string) 
                 <div>
                   <h3 className="font-semibold text-gray-900">Quick Entry</h3>
                   <p className="text-sm text-gray-600">Log weight in seconds</p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 items-start">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Camera className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Photo Mode</h3>
-                  <p className="text-sm text-gray-600">OCR extracts weight</p>
                 </div>
               </div>
 
@@ -274,7 +264,7 @@ export function LandingPage({ onLogin }: { onLogin: (user: User, token: string) 
             {/* Testimonial */}
             <div className="bg-white rounded-xl p-6 border border-blue-100 shadow-sm">
               <p className="text-gray-700 italic mb-3">
-                "Finally a weight tracker that doesn't overcomplicate things. Love the photo feature!"
+                "Finally a weight tracker that doesn't overcomplicate things. It's simple and elegant!"
               </p>
               <p className="text-sm font-semibold text-gray-900">— Happy User</p>
             </div>

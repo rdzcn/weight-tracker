@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
+from fastapi import FastAPI, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, ForeignKey
@@ -7,14 +7,9 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from dotenv import load_dotenv
 import datetime
-import pytesseract
-from PIL import Image, ImageEnhance
-import io
-import re
 import os
 import uuid
 import resend
-import numpy as np
 from typing import List, Optional
 
 # Load environment variables from .env file
@@ -283,66 +278,14 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 @app.post("/weight")
 async def add_weight(
-    weight: Optional[float] = Form(None),
-    image: Optional[UploadFile] = File(None),
+    weight: float = Form(...),
     timestamp: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db=Depends(get_db)
 ):
-    if not weight and not image:
-        raise HTTPException(status_code=400, detail="Either weight or image must be provided")
-    
+    """Add a weight entry"""
+    # Always manual entry (removed OCR/image support)
     method = 'manual'
-    if image:
-        image_data = await image.read()
-        img_original = Image.open(io.BytesIO(image_data))
-        
-        # Try multiple preprocessing approaches
-        extraction_attempts = []
-        
-        # Attempt 1: Grayscale + Contrast + Brightness
-        img = img_original.convert('L')
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(2)
-        enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(1.2)
-        img_array = np.array(img)
-        threshold = np.mean(img_array)
-        img_array = np.where(img_array > threshold, 255, 0).astype('uint8')
-        img = Image.fromarray(img_array)
-        text = pytesseract.image_to_string(img, config='--psm 6 -c tessedit_char_whitelist=0123456789.,')
-        extraction_attempts.append(text.strip())
-        
-        # Attempt 2: Try inverted colors (in case scale has light text on dark)
-        img = img_original.convert('L')
-        img_array = 255 - np.array(img)
-        img = Image.fromarray(img_array.astype('uint8'))
-        text = pytesseract.image_to_string(img, config='--psm 6 -c tessedit_char_whitelist=0123456789.,')
-        extraction_attempts.append(text.strip())
-        
-        # Attempt 3: Just grayscale with OCR
-        img = img_original.convert('L')
-        text = pytesseract.image_to_string(img, config='--psm 6 -c tessedit_char_whitelist=0123456789.,')
-        extraction_attempts.append(text.strip())
-        
-        # Try to extract number from all attempts
-        for extracted_text in extraction_attempts:
-            # Extract weight with flexible patterns
-            # Matches: 53.8, 53,8, 53 8, 53.8kg, (53.8), etc
-            match = re.search(r'(\d+)[.,\s]?(\d+)?', extracted_text)
-            if match:
-                whole = match.group(1)
-                decimal = match.group(2) or '0'
-                # Ensure decimal part is only 1-2 digits
-                decimal = (decimal[:2] if len(decimal) >= 2 else decimal).ljust(1, '0')
-                weight = float(f"{whole}.{decimal}")
-                method = 'ocr'
-                break
-        
-        if method != 'ocr':
-            # Log all attempts for debugging
-            attempts_info = " | ".join([f"[{i}]: {text}" for i, text in enumerate(extraction_attempts)])
-            raise HTTPException(status_code=400, detail=f"Could not extract weight from image. Attempts: {attempts_info}")
     
     # Use client-provided timestamp if available, otherwise use server UTC time
     entry_timestamp = None

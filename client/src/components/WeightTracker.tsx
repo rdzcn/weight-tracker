@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -63,7 +63,6 @@ export function WeightTracker({ user, onLogout }: { user: User; onLogout: () => 
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [editEntry, setEditEntry] = useState<WeightEntry | null>(null)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const editForm = useForm<EditFormValues>({
     resolver: zodResolver(editFormSchema),
     defaultValues: { weight: '', date: '', time: '' },
@@ -192,38 +191,7 @@ export function WeightTracker({ user, onLogout }: { user: User; onLogout: () => 
     }
   }
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
 
-    setIsLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append('image', file)
-      formData.append('timestamp', new Date().toISOString())
-
-      const response = await authFetch(`${API_URL}/weight`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Failed to extract weight from image')
-      }
-
-      fetchWeights()
-      showModal('Success', 'Weight extracted from photo successfully!', 'success')
-    } catch (error) {
-      showModal('Upload Failed', error instanceof Error ? error.message : 'There was an error uploading the photo', 'error')
-      console.error(error)
-    } finally {
-      setIsLoading(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    }
-  }
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -301,23 +269,7 @@ export function WeightTracker({ user, onLogout }: { user: User; onLogout: () => 
               </Button>
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                className="flex-1"
-              >
-                Upload Photo
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
+
           </CardContent>
         </Card>
 
